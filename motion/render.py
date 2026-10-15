@@ -24,9 +24,9 @@ LEFT_RUNS = [(0, 101), (109, 234), (244, 365), (373, 486), (487, 699), (706, 788
 RIGHT_RUNS = [(1343, 1444), (1451, 1677), (1678, 1799), (1804, 1900), (1908, 2000)]
 
 FORMATS = {
-    "vertical": (1080, 1920, 0.46),
-    "horizontal": (1920, 1080, 0.62),
-    "cuadrado": (1080, 1080, 0.46),
+    "vertical": (1080, 1920, 0.306),
+    "horizontal": (1920, 1080, 0.306),
+    "cuadrado": (1080, 1080, 0.306),
 }
 
 
@@ -169,7 +169,7 @@ def render(logo_path, out_dir, fmt):
             p = ease_out_cubic(prog(t, 0.35 + stagger[i] * 0.075, 0.9))
             dx = -side * shift
             dy = (1 - p) * 22 * S / 0.46
-            place(canvas, img, ox + px + dx, oy + py + dy, opacity=p, blur=(1 - p) * 6)
+            place(canvas, img, ox + px + dx, oy + py + dy, opacity=p, blur=(1 - p) * 6 * S / 0.46)
 
         # 2) Caballito: se revela de la cola a la corona mientras sube apenas.
         hp = prog(t, 2.55, 1.9)
@@ -179,7 +179,7 @@ def render(logo_path, out_dir, fmt):
             himg = reveal_up(horse_img, e2, feather=max(8, horse_img.height * 0.18))
             dy = (1 - e) * 30 * S / 0.46
             place(canvas, himg, ox + horse_pos[0], oy + horse_pos[1] + dy,
-                  opacity=clamp01(hp * 2.2), blur=(1 - e2) * 3)
+                  opacity=clamp01(hp * 2.2), blur=(1 - e2) * 3 * S / 0.46)
 
         # 3) Brillo sutil que recorre el logo al final.
         sp = prog(t, 4.35, 1.1)
