@@ -34,7 +34,7 @@ MUSIC_BAR = (0.035, 1.951)  # compás que se repite una vez para estirar el tema
 
 # Cada fila de texto: (texto, fuente, tamaño, peso, tracking em, color, alto de fila, retardo)
 SHOTS = [
-    dict(clip="003", ss=1.0, dur=2.15, track=[(0, .50, .5), (2.15, .52, .5)], zoom=(1.0, 1.06), rows=[
+    dict(clip="wa01", ss=16.5, dur=2.15, track=[(0, .50, .5), (2.15, .50, .5)], zoom=(1.0, 1.05), rows=[
         ("PATAGONIA", SERIF_B, 170, None, 0.06, BLANCO, 190, 0.10),
         ("La exploración", SANS, 52, 500, 0.12, AGUA, 80, 0.35),
     ]),
