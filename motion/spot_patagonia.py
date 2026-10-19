@@ -1,6 +1,6 @@
 """Spot horizontal 1920x1080 de 10 s "Patagonia, La Exploración" (Tourkess Travel).
 
-Directo, al estilo de la referencia (Despegar): tomas teñidas con el color de marca,
+Directo, al estilo de la referencia (Despegar): tomas en color natural con viñeta sutil,
 textos grandes y centrados, barridos diagonales y cierre con logo, fecha y WhatsApp.
 
 Uso: python3 spot_patagonia.py <clips_dir> <salida.mp4> [musica.mp3]
@@ -34,16 +34,16 @@ MUSIC_BAR = (0.035, 1.951)  # compás que se repite una vez para estirar el tema
 
 # Cada fila de texto: (texto, fuente, tamaño, peso, tracking em, color, alto de fila, retardo)
 SHOTS = [
-    dict(clip="wa01", ss=16.5, dur=2.15, track=[(0, .50, .5), (2.15, .50, .5)], zoom=(1.0, 1.05), rows=[
+    dict(clip="glaciar", ss=0.5, dur=2.15, track=[(0, .50, .5), (2.15, .50, .5)], zoom=(1.0, 1.05), rows=[
         ("PATAGONIA", SERIF_B, 170, None, 0.06, BLANCO, 190, 0.10),
-        ("La exploración", SANS, 52, 500, 0.12, AGUA, 80, 0.35),
+        ("La exploración", SANS, 52, 600, 0.12, BLANCO, 80, 0.35)  # blanco: el turquesa agua no contrasta sobre hielo,
     ]),
     dict(clip="02", ss=2.0, dur=2.32, track=[(0, .5, .52)], zoom=(1.0, 1.04), rows=[
         ("Salida grupal", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("30 de noviembre 2026", SERIF_B, 120, None, 0.0, AMARILLO, 140, 0.25 + WIPE),
         ("10 días · 9 noches", SANS, 38, 500, 0.10, BLANCO, 70, 0.45 + WIPE),
     ]),
-    dict(clip="001", ss=4.4, dur=2.51, track=[(0, .45, .5), (1.8, .44, .5), (2.51, .52, .5)], zoom=(1.0, 1.04), gain=1.3,
+    dict(clip="001", ss=4.4, dur=2.51, track=[(0, .45, .5), (1.8, .44, .5), (2.51, .52, .5)], zoom=(1.0, 1.04), gain=1.12,
          rows=[
         ("Con el geógrafo", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("Pablo Sigismondi", SERIF_B, 120, None, 0.0, BLANCO, 140, 0.25 + WIPE),
@@ -131,22 +131,28 @@ def reframe(frame, cx, cy, z):
 DARK = np.array([0x00, 0x1E, 0x40], np.float32)
 
 
-def brand_tint(arr):
-    """Duotono azul → turquesa sobre la luminancia, mezclado con la imagen original."""
-    lum = (arr @ np.array([0.299, 0.587, 0.114], np.float32))[..., None] / 255.0
-    lum = np.clip((lum - 0.08) / 0.85, 0, 1)
-    duo = DARK * (1 - lum) ** 1.2 + np.array(TURQUESA, np.float32) * lum * 0.95 + np.array(AZUL, np.float32) * 0.15
-    out = arr * 0.32 + duo * 0.68
-    return out * 0.92  # un poco más oscuro para que el texto blanco resalte
-
-
 def vignette(strength=0.35):
     ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
     r = np.sqrt(((xs - W / 2) / (W / 2)) ** 2 + ((ys - H / 2) / (H / 2)) ** 2) / np.sqrt(2)
     return (1 - strength * ease_in_out(np.clip((r - 0.3) / 0.7, 0, 1)))[..., None]
 
 
-VIG = vignette()
+VIG = vignette(0.28)  # viñeta sutil sobre las tomas
+
+
+def scrim():
+    """Oscurecido elíptico y suave detrás del bloque de texto, para leer sobre hielo o cielo."""
+    ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
+    s = np.exp(-((ys - H / 2) / 260) ** 2) * (0.55 + 0.45 * np.exp(-((xs - W / 2) / 650) ** 2))
+    return (1 - 0.42 * s)[..., None]
+
+
+SCRIM = scrim()
+
+
+def natural(arr):
+    """Color natural, con un leve contraste extra (reemplaza al duotono azul)."""
+    return np.clip((arr - 128) * 1.06 + 128, 0, 255)
 
 
 def tracked_len(text, f, tracking):
@@ -175,7 +181,7 @@ def composite(base, layer, shadow=0.5):
     img = Image.fromarray(np.clip(base, 0, 255).astype(np.uint8)).convert("RGBA")
     a = layer.split()[3]
     sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    sh.putalpha(a.filter(ImageFilter.GaussianBlur(14)).point(lambda v: int(v * shadow)))
+    sh.putalpha(a.filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(min(255, v * shadow * 1.2))))
     img.alpha_composite(sh)
     img.alpha_composite(layer)
     return np.asarray(img.convert("RGB"), np.float32)
@@ -188,8 +194,8 @@ def shot_frames(clips_dir, shot):
     for i, fr in enumerate(frames):
         t = i / FPS
         cx, cy = interp(shot["track"], t)
-        arr = brand_tint(reframe(fr, cx, cy, z0 + (z1 - z0) * i / max(n - 1, 1)) * shot.get("gain", 1.0)) * VIG
-        yield composite(arr, text_layer(shot["rows"], t))
+        arr = natural(reframe(fr, cx, cy, z0 + (z1 - z0) * i / max(n - 1, 1)) * shot.get("gain", 1.0)) * VIG * SCRIM
+        yield composite(arr, text_layer(shot["rows"], t), shadow=0.7)
 
 
 def end_frames(logo_path, n):
