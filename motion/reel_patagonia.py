@@ -17,16 +17,17 @@ BG = (0x17, 0x24, 0x27)
 FONT_DIR = Path("/usr/share/fonts/opentype/inter")
 F_BLACK = str(FONT_DIR / "InterDisplay-Black.otf")
 F_SEMI = str(FONT_DIR / "InterDisplay-SemiBold.otf")
-TEXT_Y = 1060  # centro del bloque de texto: dentro de la zona segura de Reels
+F_BOLD = str(FONT_DIR / "InterDisplay-Bold.otf")
+TEXT_Y = 1040  # centro del bloque de texto: dentro de la zona segura de Reels
 
 # Cada plano: clip, inicio, duración, keyframes de encuadre [(t, cx, cy)],
 # zoom (inicio, fin), grade de ffmpeg, texto (kicker, titular).
 # cx/cy = centro del recorte como fracción del ancho/alto del clip original.
 SHOTS = [
     dict(clip="0004", ss=27.0, dur=1.9, track=[(0, .62, .49), (1.9, .66, .49)], zoom=(1.25, 1.35),
-         grade="eq=contrast=1.06:saturation=1.15", text=(None, "¿TE IMAGINÁS…")),
+         grade="eq=contrast=1.06:saturation=1.15", text=(None, "VIVÍ LA PATAGONIA COMO…")),
     dict(clip="02", ss=2.0, dur=1.8, zoom=(1.0, 1.08),
-         grade="eq=saturation=1.05", text=(None, "…LAGOS TURQUESAS?")),
+         grade="eq=saturation=1.05", text=(None, "…UN VERDADERO EXPLORADOR")),
     dict(clip="0003", ss=1.5, dur=1.8, track=[(0, .68, .5), (1.8, .63, .5)], zoom=(1.0, 1.04),
          grade="eq=contrast=1.05:saturation=1.2:brightness=0.02", text=(None, "NAVEGAR SUS AGUAS")),
     dict(clip="004", ss=7.6, dur=2.0, track=[(0, .45, .5), (2.0, .52, .5)], zoom=(1.08, 1.18),
@@ -156,18 +157,23 @@ def text_layer(kicker, headline, t, text_y=TEXT_Y):
     """Capa RGBA con el kicker y el titular animados palabra por palabra."""
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    f, lines = fit_lines(headline, F_BLACK, 112, 940)
+    f, lines = fit_lines(headline, F_BOLD, 64, 760)
     lh = int(f.size * 1.08)
-    kf = font(F_SEMI, 38)
-    k_h = 70 if kicker else 0
+    k_h = 50 if kicker else 0
+    if kicker:  # el kicker nunca más ancho que el titular
+        max_kw = max(f.getlength(l) for l in lines)
+        ks = 28
+        while tracked_len(kicker, font(F_SEMI, ks), ks * 0.18) > max_kw and ks > 14:
+            ks -= 1
+        kf, ktr = font(F_SEMI, ks), ks * 0.18
     block_h = k_h + lh * len(lines)
     y = text_y - block_h // 2
-    delay, step, dur, rise = 0.10, 0.07, 0.38, 40
+    delay, step, dur, rise = 0.10, 0.07, 0.38, 26
     i = 0
     if kicker:
         p = ease_out_cubic(clamp01((t - delay) / dur))
-        kw = tracked_len(kicker, kf, 6)
-        draw_tracked(d, ((W - kw) / 2, y + rise * (1 - p)), kicker, kf, (255, 255, 255, int(235 * p)), 6)
+        kw = tracked_len(kicker, kf, ktr)
+        draw_tracked(d, ((W - kw) / 2, y + rise * (1 - p)), kicker, kf, (255, 255, 255, int(235 * p)), ktr)
         y += k_h
         i += 1
     for line in lines:
@@ -207,10 +213,10 @@ def title_layer(t):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     items = [  # (texto, fuente, tamaño, tracking, y, retardo)
-        ("SALIDA GRUPAL · 30 NOV 2026", F_SEMI, 40, 6, 760, 0.10),
-        ("PATAGONIA", F_BLACK, 168, 2, 830, 0.22),
-        ("LA EXPLORACIÓN", F_SEMI, 70, 14, 1030, 0.34),
-        ("10 DÍAS · 9 NOCHES", F_SEMI, 44, 8, 1170, 0.50),
+        ("SALIDA GRUPAL · 30 NOV 2026", F_SEMI, 26, 5, 850, 0.10),
+        ("PATAGONIA", F_BLACK, 96, 2, 892, 0.22),
+        ("LA EXPLORACIÓN", F_SEMI, 40, 10, 1005, 0.34),
+        ("10 DÍAS · 9 NOCHES", F_SEMI, 28, 6, 1092, 0.50),
     ]
     for text, path, size, tr, y, dl in items:
         f = font(path, size)
@@ -219,17 +225,16 @@ def title_layer(t):
         draw_tracked(d, ((W - tw) / 2, y + 40 * (1 - p)), text, f, (255, 255, 255, int(255 * p)), tr)
     # Línea fina que se abre bajo el título.
     p = ease_out_cubic(clamp01((t - 0.40) / 0.5))
-    half = 160 * p
-    d.rectangle((W / 2 - half, 1130, W / 2 + half, 1133), fill=(255, 255, 255, int(220 * p)))
+    half = 90 * p
+    d.rectangle((W / 2 - half, 1068, W / 2 + half, 1070), fill=(255, 255, 255, int(220 * p)))
     return layer
 
 
 def end_frames(logo_path, n):
     logo = Image.open(logo_path).convert("RGBA")
     logo = logo.crop(logo.getbbox())
-    lw = 760
+    lw = 680
     logo = logo.resize((lw, int(logo.height * lw / logo.width)), Image.LANCZOS)
-    kf, cf = font(F_SEMI, 40), font(F_BLACK, 64)
     for i in range(n):
         t = i / FPS
         canvas = Image.new("RGBA", (W, H), BG + (255,))
@@ -237,12 +242,7 @@ def end_frames(logo_path, n):
         s = 0.92 + 0.08 * p
         lg = logo.resize((int(logo.width * s), int(logo.height * s)), Image.BICUBIC)
         lg.putalpha(lg.split()[3].point(lambda v: int(v * p)))
-        canvas.alpha_composite(lg, ((W - lg.width) // 2, 640 - lg.height // 2))
-        d = ImageDraw.Draw(canvas)
-        for text, f, tr, y, dl in [("CUPOS LIMITADOS", kf, 8, 1000, 0.45), ("¡ESCRIBINOS!", cf, 2, 1060, 0.6)]:
-            q = ease_out_cubic(clamp01((t - dl) / 0.4))
-            tw = tracked_len(text, f, tr)
-            draw_tracked(d, ((W - tw) / 2, y + 30 * (1 - q)), text, f, (255, 255, 255, int(255 * q)), tr)
+        canvas.alpha_composite(lg, ((W - lg.width) // 2, H // 2 - 60 - lg.height // 2))
         yield canvas.convert("RGB")
 
 
@@ -264,11 +264,11 @@ def main():
             cx, cy = interp(track, t)
             img = reframe(fr, cx, cy, z0 + (z1 - z0) * k)
             if shot.get("title"):
-                img = scrim(img, H / 2, H / 2, 0.55)
+                img = scrim(img, H / 2 - 20, 520, 0.45)
                 img = with_shadow(img, title_layer(t), 0.5)
             else:
                 ty = shot.get("text_y", TEXT_Y)
-                img = scrim(img, ty, 420, 0.38)
+                img = scrim(img, ty, 340, 0.30)
                 img = with_shadow(img, text_layer(*shot["text"], t, ty))
             enc.stdin.write(img.convert("RGB").tobytes())
         print(f"{shot['clip']}: {n} cuadros", flush=True)
