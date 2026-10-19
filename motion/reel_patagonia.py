@@ -31,7 +31,7 @@ SHOTS = [
     dict(clip="0004", ss=27.0, dur=2.2, track=[(0, .62, .49), (2.2, .66, .49)], zoom=(1.25, 1.35),
          grade="eq=contrast=1.04:saturation=1.05", text=dict(dest="PATAGONIA"), trans=("black", 0.5)),
     dict(clip="02", ss=2.0, dur=2.2, zoom=(1.0, 1.06),
-         grade="eq=saturation=0.98", text=dict(sub="Como nunca te la contaron"), trans=("dissolve", 0.35)),
+         grade="eq=saturation=0.98", text=dict(sub="Como nunca te la contaron"), trans=("dissolve", 0.45)),
     dict(clip="0003", ss=1.5, dur=2.0, track=[(0, .70, .30), (2.0, .66, .30)], zoom=(1.15, 1.18),
          grade="eq=contrast=1.04:saturation=1.08:brightness=0.02", text=dict(sub="Navegar sus aguas"),
          trans=("cut",)),
@@ -39,8 +39,8 @@ SHOTS = [
          grade="eq=saturation=1.02", text=dict(sub="Safari 4x4"), trans=("cut",)),
     dict(clip="06", ss=0.0, dur=2.4, zoom=(1.0, 1.08),
          grade="eq=contrast=1.05:saturation=1.0", text=dict(sub="Arte de miles de años"), trans=("black", 0.3)),
-    dict(clip="05", ss=3.0, dur=2.0, zoom=(1.08, 1.0),
-         grade="eq=contrast=1.05:saturation=1.0", text=dict(dest="TODO ORGANIZADO"), trans=("dissolve", 0.4)),
+    dict(clip="003", ss=1.0, dur=2.2, track=[(0, .70, .5), (2.2, .72, .5)], zoom=(1.0, 1.04),
+         grade="eq=saturation=0.98", text=dict(dest="TODO ORGANIZADO"), trans=("dissolve", 0.5)),
     dict(clip="001", ss=4.9, dur=2.3, track=[(0, .45, .5), (1.0, .43, .5), (1.9, .50, .5), (2.3, .64, .5)],
          zoom=(1.0, 1.0), grade="eq=contrast=1.1:brightness=0.03:saturation=1.08",
          text=dict(sub="Vos solo disfrutá"), trans=("cut",)),
@@ -249,16 +249,18 @@ def shot_frames(clips_dir, shot):
     track = shot.get("track", [(0, .5, .5)])
     z0, z1 = shot["zoom"]
     dur = n / FPS
+    # En un encadenado el texto espera a que termine el fundido, así no se pisa con el anterior.
+    off = shot["trans"][1] if shot["trans"][0] == "dissolve" else 0.0
     for i, fr in enumerate(frames):
         t = i / FPS
         cx, cy = interp(track, t)
         img = reframe(fr, cx, cy, z0 + (z1 - z0) * i / max(n - 1, 1))
         if shot.get("title"):
             img = Image.fromarray(finish(img, BAND_TITLE).astype(np.uint8))
-            img = with_shadow(img, title_layer(t, dur))
+            img = with_shadow(img, title_layer(t - off, dur - off))
         else:
             img = Image.fromarray(finish(img, BAND_TEXT).astype(np.uint8))
-            img = with_shadow(img, text_layer(shot["text"], t, dur))
+            img = with_shadow(img, text_layer(shot["text"], t - off, dur - off))
         yield finish(img, VIGNETTE)
 
 
@@ -294,7 +296,7 @@ def main():
     sources.append((END["trans"], "logo", lambda: end_frames(logo_path, int(END["dur"] * FPS)),
                     int(END["dur"] * FPS)))
     total = 0
-    tail = []  # últimos cuadros del plano anterior, retenidos para encadenar o fundir
+    tail = []  # últimos cuadros del plano anterior, retenidos para el encadenado
     for idx, (trans, name, gen, n) in enumerate(sources):
         nxt = sources[idx + 1][0] if idx + 1 < len(sources) else ("black", 0.4)
         k_in = int(round(trans[1] * FPS)) if trans[0] != "cut" else 0
@@ -302,8 +304,8 @@ def main():
         for i, arr in enumerate(gen()):
             if trans[0] == "black" and i < k_in:  # sale del negro
                 arr = arr * ease_in_out((i + 1) / (k_in + 1))
-            if trans[0] == "dissolve" and tail:  # encadenado con el plano anterior
-                a = ease_in_out((i + 1) / (len(tail) + 1))
+            if trans[0] == "dissolve" and i < k_in and tail:  # encadenado con el plano anterior
+                a = ease_in_out((i + 1) / (k_in + 1))
                 arr = tail.pop(0) * (1 - a) + arr * a
                 write(arr)
                 total += 1
