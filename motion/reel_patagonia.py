@@ -44,7 +44,7 @@ SHOTS = [
     dict(clip="001", ss=4.9, dur=2.3, track=[(0, .45, .5), (1.0, .43, .5), (1.9, .50, .5), (2.3, .64, .5)],
          zoom=(1.0, 1.0), grade="eq=contrast=1.1:brightness=0.03:saturation=1.08",
          text=dict(sub="Vos solo disfrutá"), trans=("cut",)),
-    dict(clip="0010", ss=0.5, dur=2.2, track=[(0, .40, .5), (2.2, .42, .5)], zoom=(1.0, 1.05),
+    dict(clip="bosque", ss=0.5, dur=2.2, track=[(0, .5, .6)], zoom=(1.08, 1.12),
          grade="eq=saturation=1.02", text=dict(sub="Sin multitudes"), trans=("black", 0.3)),
     dict(clip="011", ss=2.0, dur=2.0, zoom=(1.0, 1.06),
          grade="eq=saturation=1.0", text=dict(sub="Acompañados por el viento"), trans=("dissolve", 0.5)),
