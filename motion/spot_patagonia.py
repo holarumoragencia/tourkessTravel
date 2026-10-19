@@ -3,7 +3,7 @@
 Directo, al estilo de la referencia (Despegar): tomas teñidas con el color de marca,
 textos grandes y centrados, barridos diagonales y cierre con logo, fecha y WhatsApp.
 
-Uso: python3 spot_patagonia.py <clips_dir> <salida.mp4> [logo.png]
+Uso: python3 spot_patagonia.py <clips_dir> <salida.mp4> [musica.mp3]
 """
 import subprocess
 import sys
@@ -29,24 +29,27 @@ AGUA = (0x7B, 0xF0, 0xB4)
 
 WIPE = 0.40  # duración del barrido diagonal entre planos
 
+# Los barridos caen en los golpes de la música (1,95 s, 3,87 s y 5,98 s tras el loop de un compás).
+MUSIC_BAR = (0.035, 1.951)  # compás que se repite una vez para estirar el tema a 10 s
+
 # Cada fila de texto: (texto, fuente, tamaño, peso, tracking em, color, alto de fila, retardo)
 SHOTS = [
-    dict(clip="0010", ss=0.4, dur=2.8, track=[(0, .45, .5), (2.8, .50, .5)], zoom=(1.0, 1.06), rows=[
+    dict(clip="0010", ss=0.4, dur=2.15, track=[(0, .45, .5), (2.15, .50, .5)], zoom=(1.0, 1.06), rows=[
         ("PATAGONIA", SERIF_B, 170, None, 0.06, BLANCO, 190, 0.10),
         ("La exploración", SANS, 52, 500, 0.12, AGUA, 80, 0.35),
     ]),
-    dict(clip="02", ss=2.0, dur=2.8, track=[(0, .5, .52)], zoom=(1.0, 1.04), rows=[
+    dict(clip="02", ss=2.0, dur=2.32, track=[(0, .5, .52)], zoom=(1.0, 1.04), rows=[
         ("Salida grupal", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("30 de noviembre 2026", SERIF_B, 120, None, 0.0, AMARILLO, 140, 0.25 + WIPE),
         ("10 días · 9 noches", SANS, 38, 500, 0.10, BLANCO, 70, 0.45 + WIPE),
     ]),
-    dict(clip="001", ss=4.6, dur=2.3, track=[(0, .45, .5), (1.6, .44, .5), (2.3, .52, .5)], zoom=(1.0, 1.04), gain=1.3,
+    dict(clip="001", ss=4.4, dur=2.51, track=[(0, .45, .5), (1.8, .44, .5), (2.51, .52, .5)], zoom=(1.0, 1.04), gain=1.3,
          rows=[
         ("Con el geógrafo", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("Pablo Sigismondi", SERIF_B, 120, None, 0.0, BLANCO, 140, 0.25 + WIPE),
     ]),
 ]
-END_DUR = 2.9 + WIPE
+END_DUR = 4.22  # el golpe final de la música cae en la apertura del cierre
 
 
 def ease_out_cubic(t):
@@ -229,10 +232,21 @@ def wipe_mask(p):
 
 def main():
     clips_dir, out = Path(sys.argv[1]), Path(sys.argv[2])
-    logo_path = sys.argv[3] if len(sys.argv) > 3 else HERE / "assets/logo_tourkess.png"
+    music = sys.argv[3] if len(sys.argv) > 3 else None
+    logo_path = HERE / "assets/logo_tourkess.png"
+    audio_in, audio_out = [], []
+    if music:
+        a0, a1 = MUSIC_BAR
+        audio_in = ["-i", music]
+        audio_out = ["-filter_complex",
+                     f"[1:a]asplit[x][y];[x]atrim=0:{a1},asetpts=PTS-STARTPTS[a];"
+                     f"[y]atrim={a0},asetpts=PTS-STARTPTS[b];[a][b]acrossfade=d=0.02[m];"
+                     f"[m]atrim=0:10,afade=t=out:st=9.4:d=0.6[aout]",
+                     "-map", "0:v", "-map", "[aout]", "-c:a", "aac", "-b:a", "192k"]
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24",
-                            "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "slow",
-                            "-crf", "17", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)],
+                            "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-", *audio_in, *audio_out,
+                            "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p",
+                            "-movflags", "+faststart", "-t", "10", str(out)],
                            stdin=subprocess.PIPE)
     k = int(round(WIPE * FPS))
     gens = [lambda s=s: shot_frames(clips_dir, s) for s in SHOTS]
