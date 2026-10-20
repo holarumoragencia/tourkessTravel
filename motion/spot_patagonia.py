@@ -33,7 +33,7 @@ WIPE = 0.40  # duración del barrido diagonal entre planos
 MUSIC_BAR = (0.035, 1.951)  # compás que se repite una vez para estirar el tema a 10 s
 
 # Cada fila de texto: (texto, fuente, tamaño, peso, tracking em, color, alto de fila, retardo)
-# Material propio del viaje (Pablo y su grupo). text_y = centro vertical del bloque de texto.
+# Material propio del viaje (Pablo y su grupo). Todo el copy va centrado en pantalla.
 SHOTS = [
     dict(clip="v2", ss=0.6, dur=2.15, track=[(0, .50, .5), (2.15, .52, .5)], zoom=(1.0, 1.05), rows=[
         ("PATAGONIA", SERIF_B, 170, None, 0.06, BLANCO, 190, 0.10),
@@ -43,12 +43,12 @@ SHOTS = [
         ("Salida grupal", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("30 de noviembre 2026", SERIF_B, 120, None, 0.0, AMARILLO, 140, 0.25 + WIPE),
         ("10 días · 9 noches", SANS, 38, 500, 0.10, BLANCO, 70, 0.45 + WIPE),
-    ], text_y=500, text_x=800),  # corrido a la izquierda para no tocar la cara de Pablo
-    # Selfie de Pablo con el grupo: el texto va arriba, sobre el lago, para no tapar las caras.
+    ]),
+    # Selfie de Pablo con el grupo en la lancha.
     dict(clip="v1", ss=0.8, dur=2.51, track=[(0, .5, .5)], zoom=(1.0, 1.03), rows=[
         ("Con el geógrafo", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("Pablo Sigismondi", SERIF_B, 120, None, 0.0, BLANCO, 140, 0.25 + WIPE),
-    ], text_y=185),
+    ]),
 ]
 END_CLIP = dict(clip="v5", ss=1.0, dur=4.22, track=[(0, .5, .5)], zoom=(1.0, 1.06))  # fondo del cierre: la ruta
 END_DUR = 4.22  # el golpe final de la música cae en la apertura del cierre
