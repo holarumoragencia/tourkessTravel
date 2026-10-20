@@ -1,7 +1,7 @@
 """Spot horizontal 1920x1080 de 10 s "Patagonia, La Exploración" (Tourkess Travel).
 
-Directo, al estilo de la referencia (Despegar): tomas en color natural con viñeta sutil,
-textos grandes y centrados, barridos diagonales y cierre con logo, fecha y WhatsApp.
+Directo, al estilo de la referencia (Despegar): material propio del viaje en color natural con
+viñeta sutil, textos grandes, barridos diagonales y cierre sobre la ruta con logo, fecha y WhatsApp.
 
 Uso: python3 spot_patagonia.py <clips_dir> <salida.mp4> [musica.mp3]
 """
@@ -33,22 +33,24 @@ WIPE = 0.40  # duración del barrido diagonal entre planos
 MUSIC_BAR = (0.035, 1.951)  # compás que se repite una vez para estirar el tema a 10 s
 
 # Cada fila de texto: (texto, fuente, tamaño, peso, tracking em, color, alto de fila, retardo)
+# Material propio del viaje (Pablo y su grupo). text_y = centro vertical del bloque de texto.
 SHOTS = [
-    dict(clip="pnpm", ss=4.3, dur=2.15, track=[(0, .50, .5), (2.15, .50, .5)], zoom=(1.0, 1.05), rows=[
+    dict(clip="v2", ss=0.6, dur=2.15, track=[(0, .50, .5), (2.15, .52, .5)], zoom=(1.0, 1.05), rows=[
         ("PATAGONIA", SERIF_B, 170, None, 0.06, BLANCO, 190, 0.10),
-        ("La exploración", SANS, 52, 600, 0.12, BLANCO, 80, 0.35)  # blanco: el turquesa agua no contrasta sobre hielo,
+        ("La exploración", SANS, 52, 600, 0.12, BLANCO, 80, 0.35),
     ]),
-    dict(clip="02", ss=2.0, dur=2.32, track=[(0, .5, .52)], zoom=(1.0, 1.04), rows=[
+    dict(clip="v3", ss=2.0, dur=2.32, track=[(0, .5, .5)], zoom=(1.0, 1.04), rows=[
         ("Salida grupal", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("30 de noviembre 2026", SERIF_B, 120, None, 0.0, AMARILLO, 140, 0.25 + WIPE),
         ("10 días · 9 noches", SANS, 38, 500, 0.10, BLANCO, 70, 0.45 + WIPE),
-    ]),
-    dict(clip="001", ss=4.4, dur=2.51, track=[(0, .45, .5), (1.8, .44, .5), (2.51, .52, .5)], zoom=(1.0, 1.04), gain=1.12,
-         rows=[
+    ], text_y=500, text_x=800),  # corrido a la izquierda para no tocar la cara de Pablo
+    # Selfie de Pablo con el grupo: el texto va arriba, sobre el lago, para no tapar las caras.
+    dict(clip="v1", ss=0.8, dur=2.51, track=[(0, .5, .5)], zoom=(1.0, 1.03), rows=[
         ("Con el geógrafo", SANS, 46, 500, 0.10, BLANCO, 80, 0.10 + WIPE),
         ("Pablo Sigismondi", SERIF_B, 120, None, 0.0, BLANCO, 140, 0.25 + WIPE),
-    ]),
+    ], text_y=185),
 ]
+END_CLIP = dict(clip="v5", ss=1.0, dur=4.22, track=[(0, .5, .5)], zoom=(1.0, 1.06))  # fondo del cierre: la ruta
 END_DUR = 4.22  # el golpe final de la música cae en la apertura del cierre
 
 
@@ -140,14 +142,12 @@ def vignette(strength=0.35):
 VIG = vignette(0.28)  # viñeta sutil sobre las tomas
 
 
-def scrim():
+@lru_cache(maxsize=None)
+def scrim(cy=H / 2):
     """Oscurecido elíptico y suave detrás del bloque de texto, para leer sobre hielo o cielo."""
     ys, xs = np.mgrid[0:H, 0:W].astype(np.float32)
-    s = np.exp(-((ys - H / 2) / 260) ** 2) * (0.55 + 0.45 * np.exp(-((xs - W / 2) / 650) ** 2))
+    s = np.exp(-((ys - cy) / 260) ** 2) * (0.55 + 0.45 * np.exp(-((xs - W / 2) / 650) ** 2))
     return (1 - 0.42 * s)[..., None]
-
-
-SCRIM = scrim()
 
 
 def natural(arr):
@@ -159,7 +159,7 @@ def tracked_len(text, f, tracking):
     return sum(f.getlength(c) for c in text) + tracking * (len(text) - 1)
 
 
-def text_layer(rows, t, center_y=H / 2):
+def text_layer(rows, t, center_y=H / 2, center_x=W / 2):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     y = center_y - sum(r[6] for r in rows) / 2
@@ -167,7 +167,7 @@ def text_layer(rows, t, center_y=H / 2):
         f = font(path, size, weight)
         tr = size * em
         p = ease_out_cubic(clamp01((t - delay) / 0.5))
-        x = (W - tracked_len(text, f, tr)) / 2
+        x = center_x - tracked_len(text, f, tr) / 2
         asc, desc = f.getmetrics()
         ty = y + (h - (asc + desc)) / 2 + 30 * (1 - p)
         for ch in text:
@@ -194,19 +194,20 @@ def shot_frames(clips_dir, shot):
     for i, fr in enumerate(frames):
         t = i / FPS
         cx, cy = interp(shot["track"], t)
-        arr = natural(reframe(fr, cx, cy, z0 + (z1 - z0) * i / max(n - 1, 1)) * shot.get("gain", 1.0)) * VIG * SCRIM
-        yield composite(arr, text_layer(shot["rows"], t), shadow=0.7)
+        ty, tx = shot.get("text_y", H / 2), shot.get("text_x", W / 2)
+        arr = natural(reframe(fr, cx, cy, z0 + (z1 - z0) * i / max(n - 1, 1)) * shot.get("gain", 1.0)) * VIG * scrim(ty)
+        yield composite(arr, text_layer(shot["rows"], t, center_y=ty, center_x=tx), shadow=0.7)
 
 
-def end_frames(logo_path, n):
+def end_frames(clips_dir, logo_path, n):
     logo = Image.open(logo_path).convert("RGBA")
     logo = logo.crop(logo.getbbox())
     lw = 560
     logo = logo.resize((lw, int(logo.height * lw / logo.width)), Image.LANCZOS)
-    # Fondo: degradado sutil de azul Tourkess hacia un azul más profundo.
-    ys = np.linspace(0, 1, H, dtype=np.float32)[:, None, None]
-    bg = np.array(AZUL, np.float32) * (1 - 0.35 * ys) + DARK * 0.35 * ys
-    bg = np.broadcast_to(bg, (H, W, 3)) * vignette(0.3)
+    # Fondo: la ruta, oscurecida de forma pareja para que logo, número y fecha contrasten.
+    frames = read_shot(clips_dir, END_CLIP)
+    z0, z1 = END_CLIP["zoom"]
+    dim = vignette(0.35) * 0.48
     rows = [
         ("Consultá con Favio por WhatsApp", SANS, 44, 500, 0.06, AGUA, 80, 0.30 + WIPE),
         ("+54 9 3512 07-4454", SERIF_B, 132, None, 0.02, BLANCO, 160, 0.45 + WIPE),
@@ -214,12 +215,16 @@ def end_frames(logo_path, n):
     ]
     for i in range(n):
         t = i / FPS
-        img = Image.fromarray(bg.astype(np.uint8)).convert("RGBA")
+        bg = natural(reframe(frames[min(i, len(frames) - 1)], .5, .5, z0 + (z1 - z0) * i / max(n - 1, 1))) * dim
+        img = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8)).convert("RGBA")
         p = ease_out_cubic(clamp01((t - 0.1 - WIPE) / 0.6))
         lg = logo.copy()
         lg.putalpha(lg.split()[3].point(lambda v: int(v * p)))
         img.alpha_composite(lg, ((W - lg.width) // 2, 175 + int(20 * (1 - p))))
         layer = text_layer(rows, t, center_y=690)
+        sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        sh.putalpha(layer.split()[3].filter(ImageFilter.GaussianBlur(10)).point(lambda v: int(v * 0.6)))
+        img.alpha_composite(sh)
         img.alpha_composite(layer)
         yield np.asarray(img.convert("RGB"), np.float32)
 
@@ -256,7 +261,7 @@ def main():
                            stdin=subprocess.PIPE)
     k = int(round(WIPE * FPS))
     gens = [lambda s=s: shot_frames(clips_dir, s) for s in SHOTS]
-    gens.append(lambda: end_frames(logo_path, int(round(END_DUR * FPS))))
+    gens.append(lambda: end_frames(clips_dir, logo_path, int(round(END_DUR * FPS))))
     lens = [int(round(s["dur"] * FPS)) for s in SHOTS] + [int(round(END_DUR * FPS))]
     total, tail = 0, []
     for idx, gen in enumerate(gens):
