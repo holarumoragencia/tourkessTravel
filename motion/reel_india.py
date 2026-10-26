@@ -7,7 +7,7 @@ usados con moderación para sumar un toque publicitario sin perder lo cinematogr
 Los videos fuente ya vienen editados (cortes cada ~0,9 s): se separan las tomas, se
 ralentizan con interpolación de movimiento y se agrupan de a dos por cada texto.
 
-Uso: python3 reel_india.py <clips_dir> <salida.mp4>  (clips: delhi, jaipur, agra, varanasi, emirates)
+Uso: python3 reel_india.py <clips_dir> <salida.mp4>  (clips: delhi, udaipur, jaipur, agra, varanasi, emirates)
 """
 import subprocess
 import sys
@@ -38,8 +38,10 @@ SEGMENTS = [
          text=dict(kicker="Vuelos internacionales", sub="con Emirates"), trans=("lines", 0.5)),
     dict(name="c04", parts=[("delhi", 2.86, 3.78), ("delhi", 4.72, 5.45)], dur=2.4,
          text=dict(dest="DELHI"), trans=("dissolve", 0.45)),
+    dict(name="c045", parts=[("udaipur", 3.52, 4.45), ("udaipur", 0.03, 0.95)], dur=2.6,
+         text=dict(dest="UDAIPUR"), trans=("cut",)),
     dict(name="c05", parts=[("jaipur", 1.90, 2.75), ("jaipur", 2.80, 3.72)], dur=2.8,
-         text=dict(dest="JAIPUR"), trans=("cut",)),
+         text=dict(dest="JAIPUR"), trans=("dissolve", 0.45)),
     dict(name="c06", parts=[("agra", 0.03, 0.95), ("agra", 3.82, 4.68)], dur=2.8,
          text=dict(dest="AGRA"), trans=("lines", 0.5)),
     dict(name="c07", parts=[("varanasi", 1.54, 2.14), ("varanasi", 2.98, 3.67)], dur=2.1,
