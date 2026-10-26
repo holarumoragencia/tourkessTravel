@@ -108,7 +108,7 @@ def title_layer(t, t_end):
         ("Delhi · Udaipur · Jaipur · Agra · Varanasi", cf, ctr, 60, 0.85),
     ]
     draw_block(d, rows, t, t_end)
-    accent_line(layer, t, t_end, H / 2 + 8, delay=0.5, half=90)
+    accent_line(layer, t, t_end, H / 2 + 26, delay=0.5, half=90)
     return layer
 
 
@@ -157,7 +157,7 @@ def end_frames(n, logo_path):
         img.alpha_composite(lg, ((W - lg.width) // 2, 560 + int(20 * (1 - p))))
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         draw_block(ImageDraw.Draw(layer), rows, t, 99, center_y=1150)
-        accent_line(layer, t, 99, 1255, delay=1.1, half=80)
+        accent_line(layer, t, 99, 1305, delay=1.1, half=80)
         img.alpha_composite(layer)
         yield np.asarray(img.convert("RGB"), np.float32)
 
