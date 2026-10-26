@@ -103,12 +103,12 @@ def accent_line(layer, t, t_end, y, delay=0.45, half=70):
 def title_layer(t, t_end):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    kf, ktr = fit("Salida grupal · 07 mar 2027", KICK)
+    kf, ktr = fit("Salida 07 mar 2027", KICK)
     df, dtr = fit("INDIA DELUXE", DEST)
     sf, s_tr = fit("12 días · 11 noches", (500, 46, 0.02))
     cf, ctr = fit("Delhi · Udaipur · Jaipur · Agra · Varanasi", (400, 28, 0.04))
     rows = [
-        ("Salida grupal · 07 mar 2027", kf, ktr, 60, 0.15),
+        ("Salida 07 mar 2027", kf, ktr, 60, 0.15),
         ("INDIA DELUXE", df, dtr, int(df.size * 1.25), 0.35),
         ("12 días · 11 noches", sf, s_tr, 80, 0.6),
         ("Delhi · Udaipur · Jaipur · Agra · Varanasi", cf, ctr, 60, 0.85),
@@ -147,10 +147,10 @@ def end_frames(work, n, logo_path):
     logo = logo.resize((lw, int(logo.height * lw / logo.width)), Image.LANCZOS)
     frames = read_shot(work, dict(clip=END_BG["name"], ss=0.0, dur=END_BG["dur"], zoom=(1.0, 1.06), grade="null"))
     dim = rp.vignette(0.4) * 0.5
-    kf, ktr = fit("5 cuotas fijas de", KICK)
-    pf, ptr = fit("USD 2.630", (600, 120, 0.04))
+    kf, ktr = fit("4 cuotas fijas de", KICK)
+    pf, ptr = fit("USD 3.290", (600, 120, 0.04))
     bf, btr = fit("Base doble", (400, 28, 0.06))
-    rows = [("5 cuotas fijas de", kf, ktr, 64, 0.65), ("USD 2.630", pf, ptr, 150, 0.8),
+    rows = [("4 cuotas fijas de", kf, ktr, 64, 0.65), ("USD 3.290", pf, ptr, 150, 0.8),
             ("Base doble", bf, btr, 56, 1.0)]
     off = END["trans"][1]
     for i in range(n):
