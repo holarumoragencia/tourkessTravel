@@ -7,7 +7,7 @@ usados con moderación para sumar un toque publicitario sin perder lo cinematogr
 Los videos fuente ya vienen editados (cortes cada ~0,9 s): se separan las tomas, se
 ralentizan con interpolación de movimiento y se agrupan de a dos por cada texto.
 
-Uso: python3 reel_india.py <clips_dir> <salida.mp4>
+Uso: python3 reel_india.py <clips_dir> <salida.mp4>  (clips: delhi, jaipur, agra, varanasi, emirates)
 """
 import subprocess
 import sys
@@ -21,8 +21,6 @@ from reel_patagonia import (DEST, FPS, H, KICK, SUB, VIGNETTE, W, BAND_TEXT, BAN
                             ease_in_out, ease_out_cubic, finish, fit, read_shot, reframe, text_layer, with_shadow)
 
 HERE = Path(__file__).parent
-AZUL = np.array([0x00, 0x4B, 0x92], np.float32)
-PROFUNDO = np.array([0x00, 0x1E, 0x40], np.float32)
 TURQUESA = np.array([0x25, 0xA4, 0xC7], np.float32)
 AGUA = np.array([0x7B, 0xF0, 0xB4], np.float32)
 
@@ -31,29 +29,34 @@ SPEED = 0.6  # las tomas fuente duran ~0,9 s: a 0,6x quedan en ~1,5 s, ritmo pau
 # Cada segmento: tomas fuente [(clip, desde, hasta)] que se ralentizan y se unen con corte seco,
 # el texto que va encima y la transición de entrada ("cut" | "black" | "dissolve" | "lines").
 SEGMENTS = [
-    dict(name="s1", parts=[("delhi", 0.03, 0.95), ("delhi", 1.90, 2.82)], dur=2.8,
+    dict(name="c01", parts=[("delhi", 0.03, 0.95), ("delhi", 1.90, 2.82)], dur=2.8,
          text=dict(dest="INDIA"), trans=("black", 0.5)),
-    dict(name="s2", parts=[("jaipur", 1.90, 2.75), ("jaipur", 2.80, 3.72)], dur=2.7,
+    dict(name="c02", parts=[("delhi", 3.82, 4.68), ("delhi", 0.99, 1.85)], dur=2.6,
          text=dict(sub="Exclusiva para mujeres"), trans=("dissolve", 0.45)),
-    dict(name="s3", parts=[("jaipur", 4.72, 5.45), ("varanasi", 2.21, 2.91)], dur=2.4,
-         text=dict(sub="12 días · 5 ciudades"), trans=("cut",)),
-    dict(name="s4", parts=[("agra", 0.03, 0.95), ("agra", 3.82, 4.68)], dur=2.8,
-         text=dict(dest="TAJ MAHAL"), trans=("lines", 0.5)),
-    dict(name="s5", parts=[("delhi", 3.82, 4.68), ("delhi", 4.72, 5.45)], dur=2.6,
-         text=dict(kicker="Vuelos internacionales", sub="con Emirates"), trans=("dissolve", 0.45)),
-    dict(name="s6", parts=[("varanasi", 1.54, 2.14), ("varanasi", 2.98, 3.67)], dur=2.2,
-         text=dict(kicker="Guía acompañante", sub="en español"), trans=("lines", 0.5)),
-    dict(name="s7", parts=[("jaipur", 0.98, 1.85), ("agra", 0.98, 2.82)], dur=2.6,
-         text=dict(sub="Hoteles y excursiones incluidas"), trans=("dissolve", 0.45)),
-    dict(name="s8", parts=[("varanasi", 3.75, 4.43, 0.22)], dur=3.0, title=True, trans=("black", 0.4)),
+    # Avión de Emirates: el clip ya tiene movimiento propio, va a velocidad normal.
+    dict(name="c03", parts=[("emirates", 5.50, 8.30, 1.0)], dur=2.6,
+         text=dict(kicker="Vuelos internacionales", sub="con Emirates"), trans=("lines", 0.5)),
+    dict(name="c04", parts=[("delhi", 2.86, 3.78), ("delhi", 4.72, 5.45)], dur=2.4,
+         text=dict(dest="DELHI"), trans=("dissolve", 0.45)),
+    dict(name="c05", parts=[("jaipur", 1.90, 2.75), ("jaipur", 2.80, 3.72)], dur=2.8,
+         text=dict(dest="JAIPUR"), trans=("cut",)),
+    dict(name="c06", parts=[("agra", 0.03, 0.95), ("agra", 3.82, 4.68)], dur=2.8,
+         text=dict(dest="AGRA"), trans=("lines", 0.5)),
+    dict(name="c07", parts=[("varanasi", 1.54, 2.14), ("varanasi", 2.98, 3.67)], dur=2.1,
+         text=dict(dest="VARANASI"), trans=("cut",)),
+    dict(name="c08", parts=[("varanasi", 2.21, 2.91), ("jaipur", 0.99, 1.85)], dur=2.4,
+         text=dict(kicker="Guía acompañante", sub="en español"), trans=("dissolve", 0.45)),
+    dict(name="c09", parts=[("varanasi", 3.75, 4.43, 0.22)], dur=3.0, title=True, trans=("black", 0.4)),
 ]
+# Fondo del cierre: el Taj Mahal al amanecer en cámara lenta, oscurecido para que se lea el precio.
+END_BG = dict(name="c10", parts=[("agra", 4.72, 5.45, 0.2)], dur=3.6)
 END = dict(dur=3.6, trans=("lines", 0.55))
 
 
 def prepare(src_dir, work):
     """Ralentiza y une las tomas de cada segmento en un clip intermedio (se reutiliza si ya existe)."""
     work.mkdir(parents=True, exist_ok=True)
-    for seg in SEGMENTS:
+    for seg in SEGMENTS + [END_BG]:
         out = work / f"{seg['name']}.mp4"
         if out.exists():
             continue
@@ -62,8 +65,9 @@ def prepare(src_dir, work):
             clip, a, b = part[:3]
             speed = part[3] if len(part) > 3 else SPEED
             inputs += ["-ss", str(a), "-t", str(b - a), "-i", str(src_dir / f"{clip}.mp4")]
-            chains.append(f"[{k}:v]setpts=(PTS-STARTPTS)/{speed},"
-                          f"minterpolate=fps={FPS}:mi_mode=mci:mc_mode=aobmc:vsbmc=1,setsar=1[v{k}]")
+            interp = f"minterpolate=fps={FPS}:mi_mode=mci:mc_mode=aobmc:vsbmc=1" if speed < 1 else f"fps={FPS}"
+            chains.append(f"[{k}:v]setpts=(PTS-STARTPTS)/{speed},{interp},"
+                          f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1[v{k}]")
         n = len(seg["parts"])
         graph = ";".join(chains) + ";" + "".join(f"[v{k}]" for k in range(n)) + f"concat=n={n}:v=1:a=0[out]"
         subprocess.run(["ffmpeg", "-v", "error", "-y", *inputs, "-filter_complex", graph, "-map", "[out]",
@@ -133,15 +137,14 @@ def seg_frames(work, seg):
         yield finish(img, VIGNETTE)
 
 
-def end_frames(n, logo_path):
-    """Cierre en azul Tourkess: logo y precio en cuotas."""
+def end_frames(work, n, logo_path):
+    """Cierre sobre video (Taj Mahal) oscurecido: logo y precio en cuotas."""
     logo = Image.open(logo_path).convert("RGBA")
     logo = logo.crop(logo.getbbox())
     lw = 560
     logo = logo.resize((lw, int(logo.height * lw / logo.width)), Image.LANCZOS)
-    ys = np.linspace(0, 1, H, dtype=np.float32)[:, None, None]
-    bg = AZUL * (1 - 0.45 * ys) + PROFUNDO * 0.45 * ys
-    bg = (np.broadcast_to(bg, (H, W, 3)) * rp.vignette(0.3)).astype(np.uint8)
+    frames = read_shot(work, dict(clip=END_BG["name"], ss=0.0, dur=END_BG["dur"], zoom=(1.0, 1.06), grade="null"))
+    dim = rp.vignette(0.4) * 0.5
     kf, ktr = fit("5 cuotas fijas de", KICK)
     pf, ptr = fit("USD 2.630", (600, 120, 0.04))
     bf, btr = fit("Base doble", (400, 28, 0.06))
@@ -150,7 +153,9 @@ def end_frames(n, logo_path):
     off = END["trans"][1]
     for i in range(n):
         t = i / FPS - off
-        img = Image.fromarray(bg).convert("RGBA")
+        fr = reframe(frames[min(i, len(frames) - 1)], .5, .5, 1.0 + 0.06 * i / max(n - 1, 1))
+        bg = np.asarray(fr, np.float32) * dim
+        img = Image.fromarray(np.clip(bg, 0, 255).astype(np.uint8)).convert("RGBA")
         p = ease_out_cubic(clamp01((t - 0.1) / 0.7))
         lg = logo.copy()
         lg.putalpha(lg.split()[3].point(lambda v: int(v * p)))
@@ -158,7 +163,7 @@ def end_frames(n, logo_path):
         layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         draw_block(ImageDraw.Draw(layer), rows, t, 99, center_y=1150)
         accent_line(layer, t, 99, 1305, delay=1.1, half=80)
-        img.alpha_composite(layer)
+        img = Image.fromarray(np.asarray(with_shadow(img.convert("RGB"), layer, 0.5))).convert("RGBA")
         yield np.asarray(img.convert("RGB"), np.float32)
 
 
@@ -176,7 +181,7 @@ def main():
 
     sources = [(s["trans"], s["name"], (lambda s=s: seg_frames(work, s)), int(round(s["dur"] * FPS)))
                for s in SEGMENTS]
-    sources.append((END["trans"], "cierre", lambda: end_frames(int(END["dur"] * FPS), HERE / "assets/logo_tourkess.png"),
+    sources.append((END["trans"], "cierre", lambda: end_frames(work, int(END["dur"] * FPS), HERE / "assets/logo_tourkess.png"),
                     int(END["dur"] * FPS)))
     total, tail = 0, []
     for idx, (trans, name, gen, n) in enumerate(sources):
